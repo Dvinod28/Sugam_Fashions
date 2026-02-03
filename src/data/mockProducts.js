@@ -1,0 +1,61 @@
+export const mockProducts = [
+  {
+    id: 1001,
+    title: "Silk Saree - Rose Gold",
+    price: 2499,
+    discountPrice: 1999,
+    description: "Premium silk saree with elegant border.",
+    images: ["images/saree-1.png"],
+    category: { name: "Sarees" },
+  },
+  {
+    id: 1002,
+    title: "Kanjeevaram Saree",
+    price: 3999,
+    description: "Traditional kanjeevaram silk saree.",
+    images: ["images/saree-2.png"],
+    category: { name: "Sarees" },
+  },
+  {
+    id: 1101,
+    title: "Bridal Lehenga - Maroon",
+    price: 12999,
+    description: "Heavy embroidered bridal lehenga set.",
+    images: ["images/model-1.png"],
+    category: { name: "Lehengas" },
+  },
+  {
+    id: 1201,
+    title: "Designer Kurti - Floral",
+    price: 1299,
+    description: "Comfortable cotton kurti with floral pattern.",
+    images: ["images/img-4.jpg"],
+    category: { name: "Kurtis" },
+  },
+  {
+    id: 1301,
+    title: "Gold Plated Necklace",
+    price: 899,
+    description: "Classic jewelry piece for all occasions.",
+    images: ["images/img-5.jpg"],
+    category: { name: "Jewelry" },
+  },
+  {
+    id: 1401,
+    title: "Embellished Sandals",
+    price: 1499,
+    description: "Stylish sandals with stone work.",
+    images: ["images/img-6.JPG"],
+    category: { name: "Footwear" },
+  },
+  {
+    id: 1501,
+    title: "Clutch Bag - Pearl",
+    price: 1599,
+    description: "Elegant clutch with pearl detailing.",
+    images: ["images/img-7.jpg"],
+    category: { name: "Accessories" },
+  },
+];
+
+
