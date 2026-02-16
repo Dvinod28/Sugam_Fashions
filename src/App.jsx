@@ -105,6 +105,8 @@ function App() {
             <Route path="/user" element={<CustomerDashboard />} />
             <Route path="/production/thread-work" element={<ProtectedRoute allowedRoles={[ROLES.THREAD_WORK]}><ProductionDashboard userRole={ROLES.THREAD_WORK} /></ProtectedRoute>} />
             <Route path="/production/rd-department" element={<ProtectedRoute allowedRoles={[ROLES.RD_DEPARTMENT]}><ProductionDashboard userRole={ROLES.RD_DEPARTMENT} /></ProtectedRoute>} />
+            <Route path="/production/store-manager" element={<ProtectedRoute allowedRoles={[ROLES.STORE_MANAGER]}><ProductionDashboard userRole={ROLES.STORE_MANAGER} /></ProtectedRoute>} />
+            <Route path="/production/product-manager" element={<ProtectedRoute allowedRoles={[ROLES.PRODUCT_MANAGER]}><ProductionDashboard userRole={ROLES.PRODUCT_MANAGER} /></ProtectedRoute>} />
             {/* Temporary test route to bypass authentication */}
             <Route path="/test/production" element={<ProductionDashboard userRole={ROLES.THREAD_WORK} />} />
           </Routes>
@@ -114,5 +116,6 @@ function App() {
     </>
   );
 }
+
 
 export default App;

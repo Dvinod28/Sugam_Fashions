@@ -137,7 +137,6 @@ import { MdOutlineFeedback } from "react-icons/md";
 import { HiOutlinePhotograph } from "react-icons/hi";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCustomers } from "../../../Redux/User/UserSlice";
-import { sendPasswordReset } from "../../../api/auth";
 import { getProduct } from "../../../Redux/Product/ProductSlice";
 import {
   fetchOrders,

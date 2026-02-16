@@ -123,6 +123,8 @@ function AddUserForm({ onAdd }) {
         >
           <option value={ROLES.THREAD_WORK}>Thread work Hand work</option>
           <option value={ROLES.RD_DEPARTMENT}>R & D department</option>
+          <option value={ROLES.STORE_MANAGER}>Store Manager (Offline Billing)</option>
+          <option value={ROLES.PRODUCT_MANAGER}>Product Manager</option>
         </select>
       </div>
       <button 
