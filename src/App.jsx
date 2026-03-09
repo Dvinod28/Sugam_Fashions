@@ -24,6 +24,8 @@ import ThankYou from "./Component/Pages/ThankYou";
 import AdminDashboard from "./Component/Dashboard/Admin/AdminDashboard";
 import CustomerDashboard from "./Component/Dashboard/Customer/CustomerDashboard";
 import ProductionDashboard from "./Component/Dashboard/Production/ProductionDashboard";
+import OfflineBilling from "./Component/Dashboard/Admin/OfflineBilling";
+import ProductManager from "./Component/Dashboard/Admin/ProductManager";
 import ProtectedRoute from "./Component/Dashboard/ProtectedRoute";
 import { ROLES } from "./data/roles";
 
@@ -105,8 +107,8 @@ function App() {
             <Route path="/user" element={<CustomerDashboard />} />
             <Route path="/production/thread-work" element={<ProtectedRoute allowedRoles={[ROLES.THREAD_WORK]}><ProductionDashboard userRole={ROLES.THREAD_WORK} /></ProtectedRoute>} />
             <Route path="/production/rd-department" element={<ProtectedRoute allowedRoles={[ROLES.RD_DEPARTMENT]}><ProductionDashboard userRole={ROLES.RD_DEPARTMENT} /></ProtectedRoute>} />
-            <Route path="/production/store-manager" element={<ProtectedRoute allowedRoles={[ROLES.STORE_MANAGER]}><ProductionDashboard userRole={ROLES.STORE_MANAGER} /></ProtectedRoute>} />
-            <Route path="/production/product-manager" element={<ProtectedRoute allowedRoles={[ROLES.PRODUCT_MANAGER]}><ProductionDashboard userRole={ROLES.PRODUCT_MANAGER} /></ProtectedRoute>} />
+            <Route path="/production/store-manager" element={<ProtectedRoute allowedRoles={[ROLES.STORE_MANAGER, ROLES.ADMIN]}><OfflineBilling /></ProtectedRoute>} />
+            <Route path="/production/product-manager" element={<ProtectedRoute allowedRoles={[ROLES.PRODUCT_MANAGER, ROLES.ADMIN]}><ProductManager /></ProtectedRoute>} />
             {/* Temporary test route to bypass authentication */}
             <Route path="/test/production" element={<ProductionDashboard userRole={ROLES.THREAD_WORK} />} />
           </Routes>

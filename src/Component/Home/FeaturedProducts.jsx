@@ -1,16 +1,15 @@
-import { useRef, useState, useMemo, useEffect } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { add } from "../../Redux/Cart/CartSlice";
 import { MdArrowOutward } from "react-icons/md";
 import { getProduct } from "../../Redux/Product/ProductSlice";
 import { FaCartPlus, FaHeart, FaRegHeart } from "react-icons/fa";
 import { RiPriceTag3Fill } from "react-icons/ri";
 import { motion } from "framer-motion";
 import { toggleWishlist } from "../../Redux/Wishlist/WishlistSlice";
+import ProductCartAction from "../Common/ProductCartAction";
 
 function FeaturedProducts() {
-  const [favorites, setFavorites] = useState({});
   const sliderRef = useRef(null);
   const dispatch = useDispatch();
   const products = useSelector((state) => state.product.data) || [];
@@ -112,10 +111,6 @@ function FeaturedProducts() {
     console.log("=== DEBUG: Featured products final:", featured);
     return featured;
   }, [products]);
-
-  const toggleFavorite = (id) => {
-    setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const scroll = (direction) => {
     if (sliderRef.current) {
@@ -258,28 +253,14 @@ function FeaturedProducts() {
                         </p>
                       )}
                     </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        toggleFavorite(product.id);
-                        const payload = {
-                          id: product.full.id,
-                          title: product.full.title,
-                          price: product.full.price,
-                          images: product.full.images,
-                          description: product.full.description,
-                        };
-                        dispatch(add({ ...payload, openDrawer: true }));
-                      }}
-                      className={`px-4 py-2 text-sm font-semibold rounded-full shadow-sm cursor-pointer transition-all duration-200 flex items-center justify-center ${
-                        favorites[product.id]
-                          ? "bg-pink-500 text-white hover:bg-pink-600"
-                          : "bg-pink-100 text-pink-500 hover:bg-pink-200 border border-pink-500"
-                      }`}
-                    >
-                      Add to Cart <FaCartPlus className="w-4 h-4 ms-1" />
-                    </motion.button>
+                    <ProductCartAction
+                      product={product.full}
+                      openDrawerOnAdd={true}
+                      addLabel="Add to Cart"
+                      addIcon={<FaCartPlus className="w-4 h-4 ms-1" />}
+                      addButtonClassName="px-4 py-2 text-sm font-semibold rounded-full shadow-sm cursor-pointer border border-pink-500 bg-pink-100 text-pink-500 hover:bg-pink-200"
+                      controlsWrapperClassName="flex-wrap"
+                    />
                   </div>
                 </div>
               </motion.div>

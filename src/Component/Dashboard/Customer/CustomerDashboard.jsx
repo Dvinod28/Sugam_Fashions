@@ -2,17 +2,28 @@ import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "../Layout/DashboardLayout";
 import StatCard from "../Shared/StatCard";
 import DataTable from "../Shared/DataTable";
-import { HiOutlineShoppingBag,
+import {
+  HiOutlineShoppingBag,
   HiOutlineHeart,
   HiOutlineCreditCard,
   HiOutlineCheckCircle,
 } from "react-icons/hi";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchMyOrders } from "../../../Redux/Order/OrderSlice";
-import { add as addToCart } from "../../../Redux/Cart/CartSlice";
 import { toggleWishlist } from "../../../Redux/Wishlist/WishlistSlice";
-import { FaCartShopping } from "react-icons/fa6";
-import { MdDelete, MdOutlineDeleteForever } from "react-icons/md";
+import { MdOutlineDeleteForever } from "react-icons/md";
+import ProductCartAction from "../../Common/ProductCartAction";
+import { ROLES } from "../../../data/roles";
+
+const HIDDEN_VALUE = "Hidden";
+
+function normalizeRole(role) {
+  return String(role || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/&/g, "");
+}
 
 export default function CustomerDashboard() {
   const [active, setActive] = useState("overview");
@@ -25,6 +36,12 @@ export default function CustomerDashboard() {
   const orderError = useSelector((s) => s.order?.error || null);
   const dispatch = useDispatch();
 
+  const normalizedRole = normalizeRole(user?.role);
+  const hidePriceFields =
+    normalizedRole === ROLES.THREAD_WORK ||
+    normalizedRole === ROLES.RD_DEPARTMENT ||
+    normalizedRole === "rddepartment";
+
   useEffect(() => {
     const fetchOrders = async () => {
       if (user?.uid) {
@@ -32,9 +49,9 @@ export default function CustomerDashboard() {
         setError(null);
         try {
           await dispatch(fetchMyOrders(user.uid));
-        } catch (error) {
-          console.error("Failed to fetch orders:", error);
-          setError(error.message || "Failed to load orders");
+        } catch (loadError) {
+          console.error("Failed to fetch orders:", loadError);
+          setError(loadError.message || "Failed to load orders");
         } finally {
           setIsLoading(false);
         }
@@ -53,19 +70,23 @@ export default function CustomerDashboard() {
     { key: "wishlist", label: "Wishlist", icon: HiOutlineHeart },
   ];
 
-  const columns = [
-    { key: "id", title: "Order #" },
-    { key: "createdAt", title: "Date" },
-    { key: "status", title: "Status" },
-    { key: "deliveryDate", title: "Delivery Date" },
-    { key: "subtotal", title: "Total" },
-  ];
+  const columns = useMemo(() => {
+    const baseColumns = [
+      { key: "id", title: "Order #" },
+      { key: "createdAt", title: "Date" },
+      { key: "status", title: "Status" },
+      { key: "deliveryDate", title: "Delivery Date" },
+    ];
+
+    if (!hidePriceFields) {
+      baseColumns.push({ key: "subtotal", title: "Total" });
+    }
+
+    return baseColumns;
+  }, [hidePriceFields]);
 
   const formatDeliveryDate = (order) => {
-    const source =
-      order.deliveryDate ||
-      order.customer?.deliveryDate ||
-      order.deliveryDays;
+    const source = order.deliveryDate || order.customer?.deliveryDate || order.deliveryDays;
     if (!source) return "—";
     if (typeof source === "number") {
       return `${source} days`;
@@ -87,9 +108,11 @@ export default function CustomerDashboard() {
       createdAt: o.createdAt ? new Date(o.createdAt).toLocaleString() : "—",
       status: o.status || "placed",
       deliveryDate: formatDeliveryDate(o),
-      subtotal: `₹${Number(o.subtotal || 0).toFixed(2)}`,
+      ...(hidePriceFields
+        ? {}
+        : { subtotal: `\u20B9${Number(o.subtotal || 0).toFixed(2)}` }),
     }));
-  }, [orders]);
+  }, [orders, hidePriceFields]);
 
   const completedOrders = useMemo(() => {
     return (orders || [])
@@ -99,14 +122,17 @@ export default function CustomerDashboard() {
         createdAt: o.createdAt ? new Date(o.createdAt).toLocaleString() : "—",
         status: o.status || "delivered",
         deliveryDate: formatDeliveryDate(o),
-        subtotal: `₹${Number(o.subtotal || 0).toFixed(2)}`,
+        ...(hidePriceFields
+          ? {}
+          : { subtotal: `\u20B9${Number(o.subtotal || 0).toFixed(2)}` }),
       }));
-  }, [orders]);
+  }, [orders, hidePriceFields]);
 
   const totalSpent = useMemo(
-    () => (orders || [])
-      .filter((o) => (o.status || "") === "done" || (o.status || "") === "delivered")
-      .reduce((sum, o) => sum + Number(o.subtotal || 0), 0),
+    () =>
+      (orders || [])
+        .filter((o) => (o.status || "") === "done" || (o.status || "") === "delivered")
+        .reduce((sum, o) => sum + Number(o.subtotal || 0), 0),
     [orders]
   );
 
@@ -142,7 +168,11 @@ export default function CustomerDashboard() {
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
             <div className="ml-3">
@@ -162,20 +192,12 @@ export default function CustomerDashboard() {
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <StatCard
-            icon={HiOutlineShoppingBag}
-            label="Orders"
-            value="—"
-          />
-          <StatCard
-            icon={HiOutlineHeart}
-            label="Wishlist"
-            value={wishlist.length}
-          />
+          <StatCard icon={HiOutlineShoppingBag} label="Orders" value="—" />
+          <StatCard icon={HiOutlineHeart} label="Wishlist" value={wishlist.length} />
           <StatCard
             icon={HiOutlineCreditCard}
             label="Spent"
-            value="₹0.00"
+            value={hidePriceFields ? HIDDEN_VALUE : "\u20B90.00"}
           />
         </div>
       </DashboardLayout>
@@ -196,15 +218,11 @@ export default function CustomerDashboard() {
           value={orders.length}
           trend={{ positive: true, value: 0 }}
         />
-        <StatCard
-          icon={HiOutlineHeart}
-          label="Wishlist"
-          value={wishlist.length}
-        />
+        <StatCard icon={HiOutlineHeart} label="Wishlist" value={wishlist.length} />
         <StatCard
           icon={HiOutlineCreditCard}
           label="Spent"
-          value={`₹${totalSpent.toFixed(2)}`}
+          value={hidePriceFields ? HIDDEN_VALUE : `\u20B9${totalSpent.toFixed(2)}`}
         />
       </div>
 
@@ -230,12 +248,13 @@ export default function CustomerDashboard() {
           )}
         </div>
       )}
+
       {active === "orders" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">My Orders</h2>
             <span className="text-sm text-gray-500">
-              {orders.length} total order{orders.length !== 1 ? 's' : ''}
+              {orders.length} total order{orders.length !== 1 ? "s" : ""}
             </span>
           </div>
           {formattedOrders.length > 0 ? (
@@ -250,12 +269,13 @@ export default function CustomerDashboard() {
           )}
         </div>
       )}
+
       {active === "completed" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Completed Orders</h2>
             <span className="text-sm text-gray-500">
-              {completedOrders.length} delivered order{completedOrders.length !== 1 ? 's' : ''}
+              {completedOrders.length} delivered order{completedOrders.length !== 1 ? "s" : ""}
             </span>
           </div>
           {completedOrders.length > 0 ? (
@@ -263,13 +283,12 @@ export default function CustomerDashboard() {
           ) : (
             <div className="text-center py-8">
               <div className="text-gray-500 mb-2">No completed orders found</div>
-              <p className="text-sm text-gray-400">
-                Your delivered orders will appear here.
-              </p>
+              <p className="text-sm text-gray-400">Your delivered orders will appear here.</p>
             </div>
           )}
         </div>
       )}
+
       {active === "wishlist" && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">My Wishlist</h2>
@@ -281,9 +300,7 @@ export default function CustomerDashboard() {
                 const images = Array.isArray(item.images)
                   ? item.images
                   : [item?.images || item?.image].filter(Boolean);
-                const img =
-                  images[0] ||
-                  "/images/img-1.jpg";
+                const img = images[0] || "/images/img-1.jpg";
                 return (
                   <div
                     key={item.id}
@@ -295,41 +312,37 @@ export default function CustomerDashboard() {
                       loading="lazy"
                       className="w-full h-50 object-cover rounded mb-3"
                       onError={(e) => {
-                        e.currentTarget.src =
-                          "/images/img-1.jpg";
+                        e.currentTarget.src = "/images/img-1.jpg";
                       }}
                     />
                     <div className="flex-1">
-                      <div className="font-medium text-gray-900 line-clamp-1">
-                        {item.title}
-                      </div>
+                      <div className="font-medium text-gray-900 line-clamp-1">{item.title}</div>
                       <div className="text-pink-600 font-semibold">
-                        ₹{Number(item.price).toFixed(2)}
+                        {hidePriceFields
+                          ? HIDDEN_VALUE
+                          : `\u20B9${Number(item.price || 0).toFixed(2)}`}
                       </div>
                     </div>
                     <div className="mt-3 flex gap-2">
-                      <button
-                        onClick={() =>
-                          dispatch(
-                            addToCart({
-                              id: item.id,
-                              title: item.title,
-                              price: item.price,
-                              images,
-                            })
-                          )
-                        }
-                        className="flex-1 px-3 py-2 rounded-md bg-pink-500 text-white font-semibold hover:bg-pink-600 hover:cursor-pointer flex items-center justify-center"
-                      >
-                        <FaCartShopping className="me-1 md:me-2" />
-                        Add to Cart
-                      </button>
+                      <ProductCartAction
+                        product={{
+                          id: item.id,
+                          title: item.title,
+                          price: item.price,
+                          images,
+                          description: item.description,
+                        }}
+                        openDrawerOnAdd={false}
+                        addLabel="Add to Cart"
+                        addButtonClassName="flex-1 px-3 py-2 rounded-md text-sm md:text-base font-semibold"
+                        controlsWrapperClassName="flex-1 flex-wrap"
+                      />
                       <button
                         onClick={() => dispatch(toggleWishlist(item))}
                         className="px-3 py-2 rounded-md border border-red-500 text-red-500 hover:bg-red-100 hover:cursor-pointer"
                         title="Remove from wishlist"
                       >
-                       <MdOutlineDeleteForever className="text-2xl" />
+                        <MdOutlineDeleteForever className="text-2xl" />
                       </button>
                     </div>
                   </div>

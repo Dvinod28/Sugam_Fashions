@@ -41,6 +41,10 @@ export default function LoginForm() {
       navigate("/production/thread-work");
     } else if (effectiveRole === ROLES.RD_DEPARTMENT) {
       navigate("/production/rd-department");
+    } else if (effectiveRole === ROLES.STORE_MANAGER) {
+      navigate("/production/store-manager");
+    } else if (effectiveRole === ROLES.PRODUCT_MANAGER) {
+      navigate("/production/product-manager");
     } else {
       navigate("/user");
     }

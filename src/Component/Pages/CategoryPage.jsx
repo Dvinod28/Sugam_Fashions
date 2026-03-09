@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { getProduct } from "../../Redux/Product/ProductSlice";
-import { add as addToCart } from "../../Redux/Cart/CartSlice";
 import { getAllProducts } from "../../data/products";
 import { FaCartShopping } from "react-icons/fa6";
 import { motion } from "framer-motion";
+import ProductCartAction from "../Common/ProductCartAction";
 
 function CategoryPage() {
   const { category } = useParams();
@@ -84,20 +84,6 @@ function CategoryPage() {
     return list;
   }, [products, normalizedCategory, searchQuery, sortBy]);
 
-  const handleAddToCart = (product) => {
-    const images = Array.isArray(product.images)
-      ? product.images
-      : [product?.images || product?.image].filter(Boolean);
-
-    const payload = {
-      id: product.id,
-      title: product.title,
-      price: product.price,
-      images,
-      description: product.description,
-    };
-    dispatch(addToCart(payload));
-  };
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6">
       {/* Breadcrumbs */}
@@ -227,13 +213,14 @@ function CategoryPage() {
                   <span className="text-pink-700 font-bold">
                     ₹{product.price}
                   </span>
-                  <button
-                    className="text-xs md:text-sm bg-pink-500 text-white font-semibold px-3 md:px-4 py-2 rounded-full hover:bg-pink-100 hover:text-pink-500 hover:border-2 hover:border-pink-500 transition-colors mt-2 md:mt-0 flex items-center"
-                    onClick={() => handleAddToCart(product)}
-                  >
-                    <FaCartShopping className="me-1 md:me-2" />
-                    Add to Cart
-                  </button>
+                  <ProductCartAction
+                    product={product}
+                    openDrawerOnAdd={false}
+                    addLabel="Add to Cart"
+                    addIcon={<FaCartShopping className="me-1 md:me-2" />}
+                    addButtonClassName="text-xs md:text-sm font-semibold px-3 md:px-4 py-2 rounded-full mt-2 md:mt-0"
+                    controlsWrapperClassName="mt-2 md:mt-0 flex-wrap"
+                  />
                 </div>
               </div>
             </motion.div>

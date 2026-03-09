@@ -2,18 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { getProduct } from "../../Redux/Product/ProductSlice";
-import { add as addToCart } from "../../Redux/Cart/CartSlice";
-import { FaBagShopping, FaCartShopping } from "react-icons/fa6";
-import { IoIosCart, IoMdAdd } from "react-icons/io";
+import { IoIosCart } from "react-icons/io";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { toggleWishlist as toggleWishlistAction } from "../../Redux/Wishlist/WishlistSlice";
+import ProductCartAction from "../Common/ProductCartAction";
 
 function AllProducts() {
   const dispatch = useDispatch();
   const { data: products } = useSelector((state) => state.product);
   const wishlist = useSelector((state) => state.wishlist || []);
-  const [favorites, setFavorites] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("relevance");
 
@@ -90,25 +88,6 @@ function AllProducts() {
 
   const isInWishlist = (productId) => {
     return (wishlist || []).some((w) => String(w.id) === String(productId));
-  };
-
-  const handleAddToCart = (product) => {
-    const images = Array.isArray(product.images)
-      ? product.images
-      : [product?.images || product?.image].filter(Boolean);
-
-    const payload = {
-      id: product.id,
-      title: product.title,
-      price: product.price,
-      images,
-      description: product.description,
-    };
-    dispatch(addToCart(payload));
-  };
-
-  const toggleFavorite = (productId) => {
-    setFavorites((prev) => ({ ...prev, [productId]: !prev[productId] }));
   };
 
   return (
@@ -239,16 +218,14 @@ function AllProducts() {
                 </div>
 
                 <div className="flex items-center mt-2 gap-2 p-2">
-                  <motion.button
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => handleAddToCart(product)}
-                    className="bg-pink-500 text-white rounded px-3 py-2 flex items-center gap-2 transition-colors duration-200"
-                    title="Add to cart"
-                  >
-                    <span className="text-sm md:text-base">Add To Cart</span>
-                    <IoIosCart className="w-5 h-5" />
-                  </motion.button>
+                  <ProductCartAction
+                    product={product}
+                    openDrawerOnAdd={false}
+                    addLabel="Add To Cart"
+                    addIcon={<IoIosCart className="w-5 h-5" />}
+                    addButtonClassName="text-sm md:text-base"
+                    controlsWrapperClassName="flex-wrap"
+                  />
 
                   <motion.button
                     whileHover={{ scale: 1.08 }}

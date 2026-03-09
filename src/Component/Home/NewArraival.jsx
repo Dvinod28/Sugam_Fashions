@@ -1,5 +1,4 @@
-import { useRef, useState, useMemo, useEffect } from "react";
-import { add } from "../../Redux/Cart/CartSlice";
+import { useRef, useMemo, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { MdArrowOutward } from "react-icons/md";
@@ -8,9 +7,9 @@ import { FaCartPlus, FaHeart, FaRegHeart } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { toggleWishlist } from "../../Redux/Wishlist/WishlistSlice";
 import { RiPriceTag3Fill } from "react-icons/ri";
+import ProductCartAction from "../Common/ProductCartAction";
 
 function NewArraival() {
-  const [favorites, setFavorites] = useState({});
   const sliderRef = useRef(null);
   const dispatch = useDispatch();
   const products = useSelector((state) => state.product.data) || [];
@@ -75,9 +74,6 @@ function NewArraival() {
       };
     });
   }, [products]);
-  const toggleFavorite = (productId) => {
-    setFavorites((prev) => ({ ...prev, [productId]: !prev[productId] }));
-  };
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -141,8 +137,8 @@ function NewArraival() {
                 <div className="relative overflow-hidden group">
                   <Link to={`/product/${product.id}`}>
                     <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      transition={{ duration: 0.3 }}
+                      whileHover={{ scale: 1.15 }}
+                      transition={{ duration: 0.4 }}
                       className="overflow-hidden"
                     >
                       <img
@@ -213,28 +209,14 @@ function NewArraival() {
                         </p>
                       )}
                     </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        toggleFavorite(product.id);
-                        const payload = {
-                          id: product.full.id,
-                          title: product.full.title,
-                          price: product.full.price,
-                          images: product.full.images,
-                          description: product.full.description,
-                        };
-                        dispatch(add(payload));
-                      }}
-                      className={`px-6 py-2 text-lg font-semibold rounded-full shadow-sm cursor-pointer transition-all duration-200 flex items-center justify-center ${
-                        favorites[product.id]
-                          ? "bg-pink-500 text-white hover:bg-pink-600"
-                          : "bg-pink-100 text-pink-500 hover:bg-pink-200 border-1 border-pink-500"
-                      }`}
-                    >
-                      Add to Cart <FaCartPlus className="w-6 h-6 ms-1" />
-                    </motion.button>
+                    <ProductCartAction
+                      product={product.full}
+                      openDrawerOnAdd={true}
+                      addLabel="Add to Cart"
+                      addIcon={<FaCartPlus className="w-6 h-6 ms-1" />}
+                      addButtonClassName="px-6 py-2 text-lg font-semibold rounded-full shadow-sm cursor-pointer border border-pink-500 bg-pink-100 text-pink-500 hover:bg-pink-200"
+                      controlsWrapperClassName="flex-wrap"
+                    />
                   </div>
                 </div>
               </motion.div>

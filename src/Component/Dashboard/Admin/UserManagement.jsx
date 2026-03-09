@@ -173,7 +173,7 @@ export default function UserManagement() {
   const handleDelete = async (userId) => {
     if (window.confirm("Are you sure you want to delete this user?")) {
       try {
-        await deleteDoc(doc(db, "users", userId));
+        await deleteDoc(doc(db, "users", userId,));
         setSuccessMessage("User deleted successfully!");
         setTimeout(() => setSuccessMessage(""), 3000);
       } catch (error) {

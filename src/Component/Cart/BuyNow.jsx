@@ -17,7 +17,7 @@ function BuyNow({ product, onClose }) {
       }],
       isBuyNow: true
     }));
-    navigate('/checkout');
+    navigate('/checkout', { state: { fromBuyNow: true } });
   };
 
   return (

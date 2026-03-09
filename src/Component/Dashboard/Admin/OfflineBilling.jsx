@@ -101,7 +101,8 @@ const OfflineBilling = () => {
 
   const handleEditBill = (bill) => {
     const billProducts = Array.isArray(bill?.products) ? bill.products : [];
-    const customOnly = billProducts.length > 0 && billProducts.every(isCustomProduct);
+    const customProducts = billProducts.filter(isCustomProduct);
+    const standardProducts = billProducts.filter((item) => !isCustomProduct(item));
 
     setEditingBillId(bill.id);
     setCustomerName(String(bill.customerName || ''));
@@ -117,25 +118,20 @@ const OfflineBilling = () => {
     setProductSearch('');
     setShowProductDropdown(false);
 
-    if (customOnly) {
-      setSelectedProducts([]);
-      setCustomItems(
-        billProducts.map((item, idx) => {
-          const label = item.title || item.name || 'Custom Service';
-          return {
-            ...item,
-            id: item.id || `custom-${Date.now()}-${idx}`,
-            title: label,
-            name: label,
-            price: Number(item.price || 0),
-            quantity: Number(item.quantity || 1),
-          };
-        })
-      );
-    } else {
-      setSelectedProducts(billProducts.map(normalizeProductForForm));
-      setCustomItems([]);
-    }
+    setSelectedProducts(standardProducts.map(normalizeProductForForm));
+    setCustomItems(
+      customProducts.map((item, idx) => {
+        const label = item.title || item.name || 'Custom Service';
+        return {
+          ...item,
+          id: item.id || `custom-${Date.now()}-${idx}`,
+          title: label,
+          name: label,
+          price: Number(item.price || 0),
+          quantity: Number(item.quantity || 1),
+        };
+      })
+    );
 
     setShowForm(true);
   };
@@ -279,7 +275,7 @@ const OfflineBilling = () => {
     }, 0);
     const draftCustomPrice = Number(customItemPrice) || 0;
     const customPrice =
-      selectedProducts.length === 0 ? customItemsTotal + draftCustomPrice : 0;
+      customItemsTotal + (selectedProducts.length === 0 ? draftCustomPrice : 0);
     return baseSubtotal + customPrice;
   }, [selectedProducts, customItems, customItemPrice]);
 
@@ -347,7 +343,7 @@ const OfflineBilling = () => {
     }
 
     const preparedCustomItems = [...customItems];
-    if (selectedProducts.length === 0 && Number(customItemPrice) > 0) {
+    if (Number(customItemPrice) > 0) {
       const label = customItemName?.trim() || 'Custom Service';
       preparedCustomItems.push({
         id: `custom-${Date.now()}`,
@@ -364,11 +360,7 @@ const OfflineBilling = () => {
     }
 
     try {
-      const shouldUseCustomItem =
-        selectedProducts.length === 0 && preparedCustomItems.length > 0;
-      const normalizedProducts = shouldUseCustomItem
-        ? preparedCustomItems
-        : selectedProducts;
+      const normalizedProducts = [...selectedProducts, ...preparedCustomItems];
       const subtotalAmountForBill = normalizedProducts.reduce(
         (total, p) => total + (p.price * p.quantity),
         0
@@ -432,6 +424,59 @@ const OfflineBilling = () => {
   const handleGenerateInvoice = (bill) => {
     setSelectedBillForInvoice(bill);
     setShowInvoiceModal(true);
+  };
+
+  const normalizePhone = (raw) => {
+    if (!raw) return '';
+    let digits = String(raw).replace(/[^0-9]/g, '');
+    digits = digits.replace(/^0+/, '');
+    if (digits.length === 10) return `91${digits}`;
+    if (digits.startsWith('91') && digits.length === 12) return digits;
+    return digits;
+  };
+
+  const handleSendInvoiceToCustomer = (bill) => {
+    const phone = normalizePhone(bill?.customerPhone || '');
+    if (!phone || phone.length < 10) {
+      alert('Customer phone is missing or invalid. Please update it before sending.');
+      return;
+    }
+
+    const deliveryDateValue = bill?.deliveryDate?.toDate
+      ? bill.deliveryDate.toDate()
+      : bill?.deliveryDate
+        ? new Date(bill.deliveryDate)
+        : null;
+    const deliveryDateText =
+      deliveryDateValue && !Number.isNaN(deliveryDateValue.getTime())
+        ? deliveryDateValue.toLocaleDateString('en-IN')
+        : 'N/A';
+    const items = Array.isArray(bill?.products) ? bill.products : [];
+    const itemLines = items.length
+      ? items
+          .map((item, idx) => `${idx + 1}. ${item.title || item.name || 'Product'} x${Number(item.quantity || 1)}`)
+          .join('\n')
+      : 'No items listed';
+
+    const message = [
+      `Hello ${bill?.customerName || 'Customer'},`,
+      '',
+      `Your invoice ${bill?.billNumber || ''} is ready.`,
+      `Delivery Date: ${deliveryDateText}`,
+      `Total: Rs ${Number(bill?.total || 0).toFixed(2)}`,
+      `Balance Due: Rs ${Number(bill?.balanceDue || 0).toFixed(2)}`,
+      '',
+      'Items:',
+      itemLines,
+      '',
+      'Thank you for choosing Sugam Fashion.',
+    ].join('\n');
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    const opened = window.open(url, '_blank');
+    if (!opened) {
+      window.location.href = url;
+    }
   };
 
   const syncOfflineBillToOrders = async (billData) => {
@@ -848,13 +893,14 @@ const OfflineBilling = () => {
                 </div>
               </div>
             )}
-            {selectedProducts.length === 0 && (
-              <div className="py-4 border-2 border-dashed border-gray-300 rounded-lg px-4">
+            <div className="py-4 border-2 border-dashed border-gray-300 rounded-lg px-4">
                 <div className="text-center">
                   <p className="text-gray-500">
-                    No products selected. You can still create a custom service bill, or add products using the search above.
+                    {selectedProducts.length === 0
+                      ? 'No products selected. You can still create a custom service bill, or add products using the search above.'
+                      : 'Add custom service items to include extra work with selected products.'}
                   </p>
-                  {productSearch && (
+                  {selectedProducts.length === 0 && productSearch && (
                     <p className="text-sm text-gray-400 mt-1">Try searching for "saree", "kurti", or "dress"</p>
                   )}
                 </div>
@@ -916,7 +962,6 @@ const OfflineBilling = () => {
                   </div>
                 )}
               </div>
-            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -1044,6 +1089,7 @@ const OfflineBilling = () => {
       {showInvoiceModal && (
         <InvoiceGenerator
           bill={selectedBillForInvoice}
+          onSendToCustomer={handleSendInvoiceToCustomer}
           onClose={() => {
             setShowInvoiceModal(false);
             setSelectedBillForInvoice(null);

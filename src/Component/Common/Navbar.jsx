@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { HiMenu, HiX, HiSearch, HiOutlineShoppingBag } from "react-icons/hi";
+import { HiMenu, HiX, HiSearch, HiOutlineShoppingBag, HiOutlineLogout } from "react-icons/hi";
 import { Link, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { getCategories } from "../../api/catalog";
 import { BiUser } from "react-icons/bi";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 import { FaMicrophone, FaMicrophoneSlash, FaCamera } from "react-icons/fa";
+import { ROLES } from "../../data/roles";
+import { logout } from "../../api/auth";
+import { getCartTotalItems } from "../../utils/cartUtils";
 
 
 function Navbar() {
@@ -20,6 +24,25 @@ function Navbar() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const searchInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const cart = useSelector((state) => state.cart || []);
+  const totalCartItems = getCartTotalItems(cart);
+  const getDashboardPathForRole = (role) => {
+    if (role === ROLES.ADMIN) return "/admin";
+    if (role === ROLES.THREAD_WORK) return "/production/thread-work";
+    if (role === ROLES.RD_DEPARTMENT) return "/production/rd-department";
+    if (role === ROLES.STORE_MANAGER) return "/production/store-manager";
+    if (role === ROLES.PRODUCT_MANAGER) return "/production/product-manager";
+    return "/user";
+  };
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setIsMobileMenuOpen(false);
+      navigate("/login", { replace: true });
+    } catch (e) {
+      console.error("Logout failed", e);
+    }
+  };
 
   async function extractColorKeyword(file) {
     return new Promise((resolve, reject) => {
@@ -296,11 +319,7 @@ function Navbar() {
             <Link
               to={(() => {
                 if (!isAuthenticated) return "/login";
-                const role = currentUser?.role;
-                if (role === "admin") return "/admin";
-                if (role === "thread_work") return "/production/thread-work";
-                if (role === "rd_department") return "/production/rd-department";
-                return "/user";
+                return getDashboardPathForRole(currentUser?.role);
               })()}
               className="text-black hover:text-pink-500 p-2 transition-all duration-200 transform hover:scale-105"
             >
@@ -317,6 +336,16 @@ function Navbar() {
             >
               <HiSearch className="h-6 w-6" />
             </button>
+            {isAuthenticated && (
+              <button
+                onClick={handleLogout}
+                className="text-black hover:text-pink-500 p-2 transition-all duration-200 transform hover:scale-105"
+                title="Logout"
+                aria-label="Logout"
+              >
+                <HiOutlineLogout className="h-6 w-6" />
+              </button>
+            )}
           </div>
 
           {/* Mobile Left Section - Toggle Button */}
@@ -365,15 +394,15 @@ function Navbar() {
                 whileTap={{ scale: 0.95 }}
               >
                 <HiOutlineShoppingBag className="h-6 w-6 transition-transform duration-200" />
-                {/* {productCart.length > 0 && (
-                <motion.span
-                  className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center shadow-lg"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                >
-                  {productCart.length}
-                </motion.span>
-              )} */}
+                {totalCartItems > 0 && (
+                  <motion.span
+                    className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center shadow-lg"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                  >
+                    {totalCartItems}
+                  </motion.span>
+                )}
               </motion.p>
             </Link>
           </div>
@@ -479,11 +508,7 @@ function Navbar() {
                   <Link
                     to={(() => {
                       if (!isAuthenticated) return "/login";
-                      const role = currentUser?.role;
-                      if (role === "admin") return "/admin";
-                      if (role === "thread_work") return "/production/thread-work";
-                      if (role === "rd_department") return "/production/rd-department";
-                      return "/user";
+                      return getDashboardPathForRole(currentUser?.role);
                     })()}
                     className="flex-1 justify-start text-black hover:text-pink-600 hover:bg-pink-200 flex items-center p-3 rounded-lg transition-all duration-300 font-medium shadow-sm hover:shadow-md"
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -492,6 +517,22 @@ function Navbar() {
                     {isAuthenticated ? "My Account" : "Login"}
                   </Link>
                 </motion.div>
+                {isAuthenticated && (
+                  <motion.div
+                    className="flex items-center space-x-3 px-3 py-2"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.8 }}
+                  >
+                    <button
+                      onClick={handleLogout}
+                      className="flex-1 justify-start text-black hover:text-pink-600 hover:bg-pink-200 flex items-center p-3 rounded-lg transition-all duration-300 font-medium shadow-sm hover:shadow-md"
+                    >
+                      <HiOutlineLogout className="h-5 w-5 mr-3" />
+                      Logout
+                    </button>
+                  </motion.div>
+                )}
               </div>
             </div>
           </motion.div>

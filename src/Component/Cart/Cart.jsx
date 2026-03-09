@@ -105,22 +105,25 @@ function Cart() {
                               Number(product.quantity || 1)
                             ).toFixed(2)}
                           </span>
-                          <div className="flex items-center gap-3 bg-pink-50/50 rounded-full p-1 order-2 md:order-none">
+                          <div className="modern-qty modern-qty--lg order-2 md:order-none">
                             <button
-                              className="p-1.5 bg-pink-600 text-white text-lg font-bold rounded-full hover:bg-pink-700 active:scale-95 transition-all duration-200 shadow-sm"
+                              type="button"
+                              className="modern-qty-btn"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 dispatch(remove(product));
                               }}
+                              aria-label="Decrease quantity"
                             >
                               <IoMdRemove />
                             </button>
-                            <span className="min-w-[36px] text-center font-semibold text-gray-700 text-lg">
+                            <span className="modern-qty-value">
                               {product.quantity}
                             </span>
                             <button
-                              className="p-1.5 bg-pink-600 text-white text-lg font-bold rounded-full hover:bg-pink-700 active:scale-95 transition-all duration-200 shadow-sm"
+                              type="button"
+                              className="modern-qty-btn"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -128,6 +131,7 @@ function Cart() {
                                   add({ ...product, openDrawer: false })
                                 );
                               }}
+                              aria-label="Increase quantity"
                             >
                               <IoMdAdd />
                             </button>
@@ -144,7 +148,7 @@ function Cart() {
                         </span>
                         <div className="flex sm:flex-row justify-end gap-3 mt-4 w-full">
                           <button
-                            className="flex items-center justify-center bg-pink-500 hover:bg-pink-600 text-white font-semibold px-4 py-2.5 rounded-full transition-all duration-200 shadow-sm hover:shadow active:scale-[0.98] gap-2"
+                            className="modern-buy-btn modern-btn--compact"
                             onClick={() => setSelectedProduct(product)}
                           >
                             <FaCartShopping className="text-lg" />

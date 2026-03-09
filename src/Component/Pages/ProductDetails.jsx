@@ -20,6 +20,9 @@ import { toggleWishlist as toggleWishlistAction } from "../../Redux/Wishlist/Wis
 import { db } from "../../firebase/config";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useAuth } from "../../contexts/AuthContext";
+import { IoMdAdd, IoMdRemove } from "react-icons/io";
+import { TiCancel } from "react-icons/ti";
+import useCartActions from "../../hooks/useCartActions";
 
 const normalizeImages = (images, fallback) => {
   if (Array.isArray(images)) return images;
@@ -130,8 +133,11 @@ function ProductDetails() {
   const reviewFormRef = useRef(null);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { getQuantity, increaseQuantity, decreaseQuantity, removeProduct } =
+    useCartActions();
   const { data: products } = useSelector((state) => state.product);
   const wishlist = useSelector((state) => state.wishlist || []);
+  const inCartQty = getQuantity(id);
 
   useEffect(() => {
     // Always dispatch getProduct to ensure fresh data on navigation
@@ -300,7 +306,7 @@ function ProductDetails() {
       console.debug("BuyNow payload:", payload);
       sessionStorage.setItem("buyNowItem", JSON.stringify(payload));
       // Use react-router navigation to avoid full page reload
-      navigate("/checkout");
+      navigate("/checkout", { state: { fromBuyNow: true } });
     } catch (err) {
       console.error("BuyNow failed:", err);
       alert("Unable to start Buy Now flow. Please try again.");
@@ -540,7 +546,8 @@ function ProductDetails() {
                   onClick={handleAddToCart}
                   className="flex-1 bg-pink-500 border border-transparent rounded-md py-3 px-8 flex items-center justify-center text-base font-medium text-white hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
                 >
-                  Add to Cart <FaBagShopping className="ms-2" />
+                  Add to Cart {inCartQty > 0 ? `(${inCartQty})` : ""}{" "}
+                  <FaBagShopping className="ms-2" />
                 </button>
                 <button
                   onClick={handleBuyNow}
@@ -549,6 +556,57 @@ function ProductDetails() {
                   Buy Now <FaCartShopping className="ms-2" />
                 </button>
               </div>
+              {inCartQty > 0 && (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-sm text-gray-600">In Cart:</span>
+                  <div className="flex items-center border border-pink-400 rounded-md overflow-hidden">
+                    {inCartQty > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => decreaseQuantity(id)}
+                        className="px-2 py-1 text-pink-600 hover:bg-pink-50"
+                        aria-label="Decrease quantity"
+                      >
+                        <IoMdRemove />
+                      </button>
+                    )}
+                    <span className="px-3 py-1 font-semibold text-pink-700">
+                      {inCartQty}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!validateSelection()) return;
+                        increaseQuantity(
+                          {
+                            id: product.id,
+                            name: product.name,
+                            price: product.price,
+                            images: product.images,
+                            description: product.description,
+                            selectedColor,
+                            selectedSize,
+                          },
+                          { openDrawer: false }
+                        );
+                        setValidationError("");
+                      }}
+                      className="px-2 py-1 text-pink-600 hover:bg-pink-50"
+                      aria-label="Increase quantity"
+                    >
+                      <IoMdAdd />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeProduct(id)}
+                    className="px-3 py-1 rounded-md bg-red-500 text-white text-sm hover:bg-red-600 inline-flex items-center gap-1"
+                  >
+                    <TiCancel />
+                    Remove
+                  </button>
+                </div>
+              )}
 
               <div className="mt-8">
                 <div className="flex gap-6 border-b">

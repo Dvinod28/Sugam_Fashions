@@ -1,6 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { db } from "../../firebase/config";
-import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
 
 const initialState = {
   data: [],
@@ -37,7 +37,7 @@ function normalizeDate(value) {
       return new Date(value.seconds * 1000).toISOString();
     }
     return new Date(value).toISOString();
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -91,6 +91,12 @@ export function placeOrder({ user, items, totals, customer }) {
           price: Number(i.price),
           quantity: Number(i.quantity || 1),
           images: i.images || [],
+          selectedColor: i.selectedColor || "",
+          selectedSize: i.selectedSize || "",
+          measurements:
+            i.measurements && typeof i.measurements === "object"
+              ? i.measurements
+              : {},
         })),
         subtotal: Number(totals?.subtotal || 0),
         status: "pending",

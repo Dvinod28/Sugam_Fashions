@@ -1,22 +1,8 @@
 import React from 'react';
 
-const MEASUREMENT_LABELS = {
-  length: 'Length',
-  width: 'Width',
-  shoulder: 'Shoulder',
-  backNeck: 'Back Neck',
-  bagal: 'Bagal',
-  frontNeck: 'Front Neck',
-  chest: 'Chest',
-  handsLength: 'Hands Length',
-  handsRound: 'Hands Round',
-  bristLength: 'Brist Length',
-  shoulderPatti: 'Shoulder Patti',
-};
-
 const InvoiceGenerator = ({ bill, onClose, onSendToCustomer }) => {
-  if (!bill) return null;
 
+  if (!bill) return null;
   const products = Array.isArray(bill.products)
     ? bill.products   
     : Array.isArray(bill.items)
@@ -96,7 +82,6 @@ const InvoiceGenerator = ({ bill, onClose, onSendToCustomer }) => {
             <div className="text-sm text-gray-600">
               Fashion Designing<br />
               Contact: +91-8880483456<br />
-              Contact: +91-8088065400<br />
               Email: info@sugamfashion.com
             </div>
           </div>
@@ -128,9 +113,8 @@ const InvoiceGenerator = ({ bill, onClose, onSendToCustomer }) => {
           <table className="w-full border-collapse border border-gray-300 mb-6 text-sm">
             <thead>
               <tr className="bg-gray-100">
-                <th className="border border-gray-300 px-3 py-2 text-left font-semibold">#</th>
+                <th className="border border-gray-300 px-3 py-2 text-left font-semibold">Serial No</th>
                 <th className="border border-gray-300 px-3 py-2 text-left font-semibold">Product</th>
-                <th className="border border-gray-300 px-3 py-2 text-left font-semibold">Measurements</th>
                 <th className="border border-gray-300 px-3 py-2 text-left font-semibold">Price</th>
                 <th className="border border-gray-300 px-3 py-2 text-left font-semibold">Qty</th>
                 <th className="border border-gray-300 px-3 py-2 text-left font-semibold">Total</th>
@@ -138,16 +122,14 @@ const InvoiceGenerator = ({ bill, onClose, onSendToCustomer }) => {
             </thead>
             <tbody>
               {products.map((product, index) => {
-                const measurements = getMeasurementLines(product.measurements || {});
+
                 const quantity = Number(product.quantity || 1);
                 const price = Number(product.price || 0);
                 return (
                   <tr key={`${product.id || product.title || 'product'}-${index}`} className="even:bg-gray-50">
                     <td className="border border-gray-300 px-3 py-2">{index + 1}</td>
                     <td className="border border-gray-300 px-3 py-2 font-medium">{product.title || product.name || 'Product'}</td>
-                    <td className="border border-gray-300 px-3 py-2">
-                      {measurements.length > 0 ? measurements.join(', ') : <span className="text-gray-500">-</span>}
-                    </td>
+                    
                     <td className="border border-gray-300 px-3 py-2">{formatMoney(price)}</td>
                     <td className="border border-gray-300 px-3 py-2">{quantity}</td>
                     <td className="border border-gray-300 px-3 py-2 font-medium">{formatMoney(price * quantity)}</td>

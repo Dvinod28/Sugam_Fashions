@@ -12,6 +12,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
 import {
+  getProduct,
   addProduct,
   updateProduct,
   deleteProduct,
@@ -487,6 +488,10 @@ export default function ProductManager() {
   const [productToDelete, setProductToDelete] = useState(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [reviewProduct, setReviewProduct] = useState(null);
+
+  useEffect(() => {
+    dispatch(getProduct());
+  }, [dispatch]);
 
   const columns = useMemo(
     () => [
