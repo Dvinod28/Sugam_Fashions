@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
 import { collection, addDoc, doc, getDocs, query, orderBy, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import DataTable from '../Shared/DataTable';
@@ -29,9 +31,208 @@ const createEmptyMeasurements = () =>
     return acc;
   }, {});
 
+const DEFAULT_DAILY_DELIVERY_LIMIT = 5;
+const DELIVERY_LOOKAHEAD_DAYS = 120;
+
+const deliveryCalendarStyles = `
+  .offline-delivery-calendar.react-calendar {
+    width: 100%;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 1.5rem;
+    background:
+      radial-gradient(circle at top right, rgba(244, 114, 182, 0.12), transparent 28%),
+      linear-gradient(180deg, #ffffff 0%, #fff8fb 100%);
+    padding: 1rem;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+      0 24px 50px -32px rgba(15, 23, 42, 0.35);
+  }
+
+  .offline-delivery-calendar .react-calendar__navigation button {
+    color: #0f172a;
+    min-width: 40px;
+    background: transparent;
+    border-radius: 9999px;
+    font-weight: 600;
+    transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+  }
+
+  .offline-delivery-calendar .react-calendar__navigation button:enabled:hover,
+  .offline-delivery-calendar .react-calendar__navigation button:enabled:focus {
+    background: rgba(15, 23, 42, 0.06);
+    color: #e11d48;
+    transform: translateY(-1px);
+  }
+
+  .offline-delivery-calendar .react-calendar__tile {
+    min-height: 88px;
+    border-radius: 1.1rem;
+    padding: 0.55rem 0.25rem;
+    transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  }
+
+  .offline-delivery-calendar .react-calendar__tile:enabled:hover,
+  .offline-delivery-calendar .react-calendar__tile:enabled:focus {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: inset 0 0 0 1px rgba(244, 114, 182, 0.24);
+    transform: translateY(-1px);
+  }
+
+  .offline-delivery-calendar .react-calendar__tile--active {
+    background: linear-gradient(135deg, #ef4444 0%, #ec4899 55%, #8b5cf6 100%);
+    color: #fff;
+    box-shadow: 0 18px 32px -24px rgba(236, 72, 153, 0.85);
+  }
+
+  .offline-delivery-calendar .react-calendar__tile--now {
+    background: rgba(59, 130, 246, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.18);
+  }
+
+  .offline-delivery-calendar .react-calendar__tile.delivery-calendar-full {
+    background: linear-gradient(180deg, rgba(255, 241, 242, 0.98) 0%, rgba(255, 228, 230, 0.92) 100%);
+    color: #be123c;
+    box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.18);
+  }
+
+  .offline-delivery-calendar .react-calendar__tile.delivery-calendar-full:enabled:hover,
+  .offline-delivery-calendar .react-calendar__tile.delivery-calendar-full:enabled:focus {
+    background: linear-gradient(180deg, rgba(255, 228, 230, 0.98) 0%, rgba(254, 205, 211, 0.94) 100%);
+  }
+
+  .offline-delivery-calendar .react-calendar__tile .delivery-calendar-meta {
+    margin-top: 0.35rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
+  .offline-delivery-calendar .react-calendar__tile .delivery-calendar-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    padding: 0.18rem 0.55rem;
+    font-weight: 600;
+    background: rgba(15, 23, 42, 0.06);
+    color: #0f172a;
+  }
+
+  .offline-delivery-calendar .react-calendar__tile .delivery-calendar-capacity {
+    color: #475569;
+  }
+
+  .offline-delivery-calendar .react-calendar__tile.delivery-calendar-full .delivery-calendar-badge {
+    background: rgba(244, 63, 94, 0.12);
+    color: #be123c;
+  }
+
+  .offline-delivery-calendar .react-calendar__tile--active .delivery-calendar-badge,
+  .offline-delivery-calendar .react-calendar__tile--active .delivery-calendar-capacity {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+`;
+
+const toValidDate = (value) => {
+  if (!value) return null;
+  const dateValue = value?.toDate ? value.toDate() : new Date(value);
+  if (Number.isNaN(dateValue.getTime())) return null;
+  return dateValue;
+};
+
+const padDatePart = (value) => String(value).padStart(2, '0');
+
+const startOfDay = (value) => {
+  const dateValue = toValidDate(value);
+  if (!dateValue) return null;
+  return new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate());
+};
+
+const getTodayStart = () => startOfDay(new Date());
+
+const isPastDateValue = (value) => {
+  const dateValue = startOfDay(value);
+  const todayStart = getTodayStart();
+  if (!dateValue || !todayStart) return false;
+  return dateValue.getTime() < todayStart.getTime();
+};
+
+const formatDateKey = (value) => {
+  const dateValue = toValidDate(value);
+  if (!dateValue) return '';
+  return `${dateValue.getFullYear()}-${padDatePart(dateValue.getMonth() + 1)}-${padDatePart(dateValue.getDate())}`;
+};
+
+const parseInputDate = (value) => {
+  if (!value) return null;
+  const [year, month, day] = String(value).split('-').map(Number);
+  if (!year || !month || !day) return null;
+  const dateValue = new Date(year, month - 1, day);
+  if (Number.isNaN(dateValue.getTime())) return null;
+  return dateValue;
+};
+
+const getMonthStart = (value) => {
+  const dateValue = toValidDate(value);
+  if (!dateValue) return new Date();
+  return new Date(dateValue.getFullYear(), dateValue.getMonth(), 1);
+};
+
+const addDays = (value, days) => {
+  const dateValue = toValidDate(value);
+  if (!dateValue) return null;
+  const nextDate = new Date(dateValue);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const formatDateLabel = (value) => {
+  const dateValue = toValidDate(value);
+  if (!dateValue) return '';
+  return dateValue.toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const getOrderDeliveryDateValue = (order) =>
+  toValidDate(
+    order?.deliveryDate ||
+      order?.customer?.deliveryDate ||
+      order?.raw?.deliveryDate ||
+      order?.raw?.customer?.deliveryDate
+  );
+
+const buildOrdersByDeliveryDate = (orders, excludedOfflineBillId = null) =>
+  (orders || []).reduce((grouped, order) => {
+    if (excludedOfflineBillId && order?.offlineBillId === excludedOfflineBillId) {
+      return grouped;
+    }
+
+    const deliveryDateValue = getOrderDeliveryDateValue(order);
+    if (!deliveryDateValue) return grouped;
+
+    const dateKey = formatDateKey(deliveryDateValue);
+    if (!dateKey) return grouped;
+
+    if (!grouped[dateKey]) {
+      grouped[dateKey] = [];
+    }
+
+    grouped[dateKey].push(order);
+    return grouped;
+  }, {});
+
 const OfflineBilling = () => {
   const dispatch = useDispatch();
   const reduxProducts = useSelector((s) => s.product.data || []);
+  const orders = useSelector((s) => s.order?.data || []);
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -54,6 +255,12 @@ const OfflineBilling = () => {
   const [customItems, setCustomItems] = useState([]);
   const [advancePayment, setAdvancePayment] = useState(0);
   const [editingBillId, setEditingBillId] = useState(null);
+  const [originalDeliveryDate, setOriginalDeliveryDate] = useState('');
+  const [dailyDeliveryLimit, setDailyDeliveryLimit] = useState(DEFAULT_DAILY_DELIVERY_LIMIT);
+  const [dailyDeliveryLimitDraft, setDailyDeliveryLimitDraft] = useState(String(DEFAULT_DAILY_DELIVERY_LIMIT));
+  const [deliveryCalendarMonth, setDeliveryCalendarMonth] = useState(() => getMonthStart(new Date()));
+  const [deliveryDateNotice, setDeliveryDateNotice] = useState('');
+  const [calendarPreviewDate, setCalendarPreviewDate] = useState('');
 
   const isEditMode = Boolean(editingBillId);
 
@@ -73,13 +280,15 @@ const OfflineBilling = () => {
     setProductSearch('');
     setShowProductDropdown(false);
     setEditingBillId(null);
+    setOriginalDeliveryDate('');
+    setDeliveryDateNotice('');
+    setCalendarPreviewDate('');
+    setDeliveryCalendarMonth(getMonthStart(new Date()));
+    setDailyDeliveryLimitDraft(String(dailyDeliveryLimit));
   };
 
   const normalizeDateForInput = (value) => {
-    if (!value) return '';
-    const dateValue = value?.toDate ? value.toDate() : new Date(value);
-    if (Number.isNaN(dateValue.getTime())) return '';
-    return dateValue.toISOString().split('T')[0];
+    return formatDateKey(value);
   };
 
   const normalizeProductForForm = (product) => ({
@@ -110,7 +319,16 @@ const OfflineBilling = () => {
     setPaymentMethod(bill.paymentMethod || 'cash');
     setDiscount(Number(bill.discount || 0));
     setDescription(bill.description || '');
-    setDeliveryDate(normalizeDateForInput(bill.deliveryDate));
+    const normalizedDeliveryDate = normalizeDateForInput(bill.deliveryDate);
+    setDeliveryDate(normalizedDeliveryDate);
+    setOriginalDeliveryDate(normalizedDeliveryDate);
+    setCalendarPreviewDate(normalizedDeliveryDate);
+    setDeliveryDateNotice(
+      normalizedDeliveryDate && isPastDateValue(normalizedDeliveryDate)
+        ? 'This bill has a historical delivery date. It is preserved for records, but new past dates cannot be selected.'
+        : ''
+    );
+    setDeliveryCalendarMonth(getMonthStart(parseInputDate(normalizedDeliveryDate) || new Date()));
     setAdditionalCharge(Number(bill.additionalCharge || 0));
     setAdvancePayment(Number(bill.advancePayment || 0));
     setCustomItemName('');
@@ -140,6 +358,7 @@ const OfflineBilling = () => {
     fetchBills();
     // Try to fetch products from Redux store first
     dispatch(getProduct());
+    dispatch(fetchOrders());
     console.log('OfflineBilling component mounted, fetching products...');
   }, [dispatch]);
 
@@ -161,6 +380,247 @@ const OfflineBilling = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showProductDropdown]);
+
+  const deliveryOrdersByDate = useMemo(() => buildOrdersByDeliveryDate(orders), [orders]);
+
+  const deliveryCapacityByDate = useMemo(
+    () => buildOrdersByDeliveryDate(orders, editingBillId),
+    [orders, editingBillId]
+  );
+
+  const getDeliveryCountForDate = (value) => {
+    const dateKey = formatDateKey(value);
+    return dateKey ? (deliveryOrdersByDate[dateKey] || []).length : 0;
+  };
+
+  const getCapacityCountForDate = (value) => {
+    const dateKey = formatDateKey(value);
+    return dateKey ? (deliveryCapacityByDate[dateKey] || []).length : 0;
+  };
+
+  const isDateAtCapacity = (value) => {
+    return isDateAtCapacityForLimit(value, dailyDeliveryLimit);
+  };
+
+  const isDateAtCapacityForLimit = (value, limitValue) => {
+    if (isPastDateValue(value)) return false;
+    if (Number(limitValue) <= 0) return false;
+    return getCapacityCountForDate(value) >= Number(limitValue);
+  };
+
+  const findNextAvailableDeliveryDate = (requestedDateValue, limitValue = dailyDeliveryLimit) => {
+    const startDate = toValidDate(requestedDateValue);
+    if (!startDate) return null;
+
+    if (isPastDateValue(startDate)) {
+      return startDate;
+    }
+
+    if (Number(limitValue) <= 0) {
+      return startDate;
+    }
+
+    for (let offset = 0; offset < DELIVERY_LOOKAHEAD_DAYS; offset += 1) {
+      const candidateDate = addDays(startDate, offset);
+      if (candidateDate && !isDateAtCapacityForLimit(candidateDate, limitValue)) {
+        return candidateDate;
+      }
+    }
+
+    return null;
+  };
+
+  const resolveDeliveryDateSelection = (value, limitValue = dailyDeliveryLimit) => {
+    const requestedDate = typeof value === 'string' ? parseInputDate(value) : toValidDate(value);
+    if (!requestedDate) {
+      return null;
+    }
+
+    if (isPastDateValue(requestedDate)) {
+      return {
+        requestedDate,
+        requestedKey: formatDateKey(requestedDate),
+        requestedCount: getCapacityCountForDate(requestedDate),
+        resolvedDate: requestedDate,
+        resolvedKey: formatDateKey(requestedDate),
+        isHistorical: true,
+      };
+    }
+
+    const resolvedDate = findNextAvailableDeliveryDate(requestedDate, limitValue);
+    return {
+      requestedDate,
+      requestedKey: formatDateKey(requestedDate),
+      requestedCount: getCapacityCountForDate(requestedDate),
+      resolvedDate,
+      resolvedKey: formatDateKey(resolvedDate),
+      isHistorical: false,
+    };
+  };
+
+  const buildDeliveryLimitChangeMessage = (nextLimit) => {
+    const currentLabel = Number(dailyDeliveryLimit) > 0 ? `${dailyDeliveryLimit} deliveries/day` : 'Unlimited deliveries';
+    const nextLabel = Number(nextLimit) > 0 ? `${nextLimit} deliveries/day` : 'Unlimited deliveries';
+    const messageLines = [
+      `Update delivery capacity from ${currentLabel} to ${nextLabel}?`,
+    ];
+
+    if (deliveryDate) {
+      const resolution = resolveDeliveryDateSelection(deliveryDate, nextLimit);
+      if (resolution?.isHistorical) {
+        messageLines.push(`The selected date ${formatDateLabel(resolution.requestedDate)} is in the past and will remain unchanged.`);
+      } else if (resolution?.resolvedDate && resolution.requestedKey !== resolution.resolvedKey) {
+        messageLines.push(
+          `The selected date ${formatDateLabel(resolution.requestedDate)} is above the new limit and will move to ${formatDateLabel(resolution.resolvedDate)}.`
+        );
+      } else if (resolution?.resolvedDate) {
+        messageLines.push(`The selected date ${formatDateLabel(resolution.requestedDate)} will stay available.`);
+      } else {
+        messageLines.push(`No available delivery slot was found in the next ${DELIVERY_LOOKAHEAD_DAYS} days.`);
+      }
+    }
+
+    if (previewDateValue) {
+      messageLines.push(
+        `${formatDateLabel(previewDateValue)} currently has ${previewDateCount} scheduled deliveries.`
+      );
+    }
+
+    messageLines.push('Confirm to apply this capacity update.');
+    return messageLines.join('\n\n');
+  };
+
+  const handleApplyDailyDeliveryLimit = () => {
+    const nextLimit = Math.max(Number(dailyDeliveryLimitDraft) || 0, 0);
+    if (nextLimit === Number(dailyDeliveryLimit)) {
+      setDeliveryDateNotice('');
+      return;
+    }
+
+    const confirmed = window.confirm(buildDeliveryLimitChangeMessage(nextLimit));
+    if (!confirmed) {
+      setDailyDeliveryLimitDraft(String(dailyDeliveryLimit));
+      return;
+    }
+
+    setDailyDeliveryLimit(nextLimit);
+
+    if (!deliveryDate) {
+      setDeliveryDateNotice(
+        nextLimit > 0
+          ? `Daily delivery capacity updated to ${nextLimit} deliveries.`
+          : 'Daily delivery capacity is now unlimited.'
+      );
+      return;
+    }
+
+    if (isPastDateValue(deliveryDate)) {
+      setDeliveryDateNotice(
+        nextLimit > 0
+          ? `Daily delivery capacity updated to ${nextLimit} deliveries. Historical delivery dates stay unchanged.`
+          : 'Daily delivery capacity is now unlimited. Historical delivery dates stay unchanged.'
+      );
+      return;
+    }
+
+    const resolution = resolveDeliveryDateSelection(deliveryDate, nextLimit);
+    if (!resolution?.resolvedDate) {
+      setDeliveryDate('');
+      setCalendarPreviewDate('');
+      setDeliveryDateNotice(`No delivery slots are available in the next ${DELIVERY_LOOKAHEAD_DAYS} days for the new limit.`);
+      return;
+    }
+
+    setDeliveryDate(resolution.resolvedKey);
+    setDeliveryCalendarMonth(getMonthStart(resolution.resolvedDate));
+    if (resolution.requestedKey !== resolution.resolvedKey) {
+      setDeliveryDateNotice(
+        `${formatDateLabel(resolution.requestedDate)} exceeded the new limit. ${formatDateLabel(resolution.resolvedDate)} is now selected.`
+      );
+      return;
+    }
+
+    setDeliveryDateNotice(
+      nextLimit > 0
+        ? `Daily delivery capacity updated to ${nextLimit} deliveries.`
+        : 'Daily delivery capacity is now unlimited.'
+    );
+  };
+
+  const handleResetDailyDeliveryLimitDraft = () => {
+    setDailyDeliveryLimitDraft(String(dailyDeliveryLimit));
+  };
+
+  const handleDeliveryDateSelection = (value) => {
+    const nextSelection = Array.isArray(value) ? value[0] : value;
+    if (isPastDateValue(nextSelection)) {
+      setCalendarPreviewDate(formatDateKey(nextSelection));
+      setDeliveryCalendarMonth(getMonthStart(nextSelection));
+      setDeliveryDateNotice('Past delivery dates are locked for history. Please choose today or a future date.');
+      return;
+    }
+
+    const resolution = resolveDeliveryDateSelection(nextSelection);
+
+    if (!resolution) {
+      setDeliveryDate('');
+      setCalendarPreviewDate('');
+      setDeliveryDateNotice('');
+      return;
+    }
+
+    setCalendarPreviewDate(resolution.requestedKey);
+    setDeliveryCalendarMonth(getMonthStart(resolution.requestedDate));
+
+    if (!resolution.resolvedDate) {
+      setDeliveryDate('');
+      setDeliveryDateNotice(`No delivery slots available in the next ${DELIVERY_LOOKAHEAD_DAYS} days.`);
+      return;
+    }
+
+    setDeliveryDate(resolution.resolvedKey);
+
+    if (resolution.requestedKey !== resolution.resolvedKey && Number(dailyDeliveryLimit) > 0) {
+      setDeliveryDateNotice(
+        `${formatDateLabel(resolution.requestedDate)} is full (${resolution.requestedCount}/${dailyDeliveryLimit}). ${formatDateLabel(resolution.resolvedDate)} was selected instead.`
+      );
+      return;
+    }
+
+    setDeliveryDateNotice('');
+  };
+
+  useEffect(() => {
+    if (!deliveryDate) return;
+
+    const requestedDate = parseInputDate(deliveryDate);
+    if (!requestedDate || isPastDateValue(requestedDate) || Number(dailyDeliveryLimit) <= 0) return;
+
+    let resolvedDate = null;
+    for (let offset = 0; offset < DELIVERY_LOOKAHEAD_DAYS; offset += 1) {
+      const candidateDate = addDays(requestedDate, offset);
+      if (!candidateDate) continue;
+
+      const candidateKey = formatDateKey(candidateDate);
+      const candidateCount = candidateKey ? (deliveryCapacityByDate[candidateKey] || []).length : 0;
+      if (candidateCount < Number(dailyDeliveryLimit)) {
+        resolvedDate = candidateDate;
+        break;
+      }
+    }
+
+    const resolvedKey = formatDateKey(resolvedDate);
+    if (!resolvedKey || resolvedKey === deliveryDate) return;
+
+    setDeliveryDate(resolvedKey);
+    setDeliveryDateNotice(
+      `Delivery capacity changed. ${formatDateLabel(resolvedDate)} is now the next available date.`
+    );
+    setDeliveryCalendarMonth(getMonthStart(resolvedDate));
+    setCalendarPreviewDate((currentPreviewDate) =>
+      !currentPreviewDate || currentPreviewDate === deliveryDate ? resolvedKey : currentPreviewDate
+    );
+  }, [dailyDeliveryLimit, deliveryCapacityByDate, deliveryDate]);
 
   const fetchBills = async () => {
     setLoading(true);
@@ -360,6 +820,36 @@ const OfflineBilling = () => {
     }
 
     try {
+      const resolvedDeliverySelection = deliveryDate ? resolveDeliveryDateSelection(deliveryDate) : null;
+      let finalDeliveryDate = resolvedDeliverySelection?.resolvedDate || null;
+
+      const isExistingHistoricalDeliveryDate =
+        isEditMode &&
+        Boolean(originalDeliveryDate) &&
+        deliveryDate === originalDeliveryDate &&
+        isPastDateValue(originalDeliveryDate);
+
+      if (deliveryDate && isPastDateValue(deliveryDate) && !isExistingHistoricalDeliveryDate) {
+        alert('Past delivery dates cannot be selected. Please choose today or a future date.');
+        return;
+      }
+
+      if (isExistingHistoricalDeliveryDate) {
+        finalDeliveryDate = parseInputDate(originalDeliveryDate);
+      }
+
+      if (deliveryDate && !finalDeliveryDate) {
+        alert(`No delivery slots are available in the next ${DELIVERY_LOOKAHEAD_DAYS} days.`);
+        return;
+      }
+
+      if (deliveryDate && !isExistingHistoricalDeliveryDate && resolvedDeliverySelection?.resolvedKey !== deliveryDate) {
+        setDeliveryDate(resolvedDeliverySelection.resolvedKey);
+        setDeliveryDateNotice(
+          `${formatDateLabel(resolvedDeliverySelection.requestedDate)} reached the delivery limit. ${formatDateLabel(resolvedDeliverySelection.resolvedDate)} was used while saving.`
+        );
+      }
+
       const normalizedProducts = [...selectedProducts, ...preparedCustomItems];
       const subtotalAmountForBill = normalizedProducts.reduce(
         (total, p) => total + (p.price * p.quantity),
@@ -380,7 +870,7 @@ const OfflineBilling = () => {
         balanceDue: Math.max(totalForBill - advancePaymentValue, 0),
         paymentMethod,
         description,
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
+        deliveryDate: finalDeliveryDate,
         updatedAt: new Date(),
       };
 
@@ -607,8 +1097,64 @@ const OfflineBilling = () => {
     });
   }, [bills, billSearch]);
 
+  const previewDateKey = calendarPreviewDate || deliveryDate;
+  const previewDateValue = parseInputDate(previewDateKey);
+  const selectedDeliveryDateValue = parseInputDate(deliveryDate);
+  const todayDateKey = formatDateKey(getTodayStart());
+  const normalizedDraftDeliveryLimit = Math.max(Number(dailyDeliveryLimitDraft) || 0, 0);
+  const deliveryLimitHasChanges = normalizedDraftDeliveryLimit !== Number(dailyDeliveryLimit);
+  const activeDeliveryLimitLabel = Number(dailyDeliveryLimit) > 0 ? `${dailyDeliveryLimit}/day` : 'Unlimited';
+  const draftDeliveryLimitLabel = normalizedDraftDeliveryLimit > 0 ? `${normalizedDraftDeliveryLimit}/day` : 'Unlimited';
+  const previewDateOrders = previewDateKey ? deliveryOrdersByDate[previewDateKey] || [] : [];
+  const previewDateCount = previewDateValue ? getDeliveryCountForDate(previewDateValue) : 0;
+  const previewDateRemaining =
+    previewDateValue && !isPastDateValue(previewDateValue) && Number(dailyDeliveryLimit) > 0
+      ? Math.max(Number(dailyDeliveryLimit) - getCapacityCountForDate(previewDateValue), 0)
+      : null;
+  const selectedDateCount = selectedDeliveryDateValue ? getDeliveryCountForDate(selectedDeliveryDateValue) : 0;
+  const selectedDateRemaining =
+    selectedDeliveryDateValue && !isPastDateValue(selectedDeliveryDateValue) && Number(dailyDeliveryLimit) > 0
+      ? Math.max(Number(dailyDeliveryLimit) - getCapacityCountForDate(selectedDeliveryDateValue), 0)
+      : null;
+  const todayDeliveryCount = getDeliveryCountForDate(new Date());
+  const suggestedSelectedDate = selectedDeliveryDateValue
+    && !isPastDateValue(selectedDeliveryDateValue)
+    ? findNextAvailableDeliveryDate(selectedDeliveryDateValue)
+    : null;
+
+  const deliveryCalendarTileContent = ({ date, view }) => {
+    if (view !== 'month') return null;
+
+    const count = getDeliveryCountForDate(date);
+    if (!count && Number(dailyDeliveryLimit) <= 0) {
+      return null;
+    }
+
+    const remaining =
+      !isPastDateValue(date) && Number(dailyDeliveryLimit) > 0
+        ? Math.max(Number(dailyDeliveryLimit) - getCapacityCountForDate(date), 0)
+        : null;
+
+    return (
+      <div className="delivery-calendar-meta">
+        {count > 0 && <span className="delivery-calendar-badge">{count} deliveries</span>}
+        {remaining !== null && (
+          <span className="delivery-calendar-capacity">
+            {remaining === 0 ? 'Full' : `${remaining} left`}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  const deliveryCalendarTileClassName = ({ date, view }) => {
+    if (view !== 'month') return '';
+    return isDateAtCapacity(date) ? 'delivery-calendar-full' : '';
+  };
+
   return (
     <div className="space-y-6">
+      <style>{deliveryCalendarStyles}</style>
       {console.log('Component render - products:', products.length, 'reduxProducts:', reduxProducts.length, 'showProductDropdown:', showProductDropdown, 'productSearch:', productSearch)}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Offline Billing</h2>
@@ -663,20 +1209,261 @@ const OfflineBilling = () => {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Delivery Date
-              </label>
-              <input
-                type="date"
-                value={deliveryDate}
-                onChange={(e) => setDeliveryDate(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              />
-              <p className="text-xs text-gray-500 mt-1">
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_70px_-38px_rgba(15,23,42,0.45)]">
+              <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-rose-600 px-5 py-5 text-white">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-white/70">
+                      Delivery Planner
+                    </p>
+                    <h4 className="mt-2 text-2xl font-semibold">Control slot pressure before confirming the bill</h4>
+                    <p className="mt-2 max-w-2xl text-sm text-white/75">
+                      Review date demand like a modern retail dashboard, confirm capacity changes explicitly, and keep
+                      overbooked days from slipping into the schedule.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-white/60">Live Limit</p>
+                      <p className="mt-2 text-lg font-semibold">{activeDeliveryLimitLabel}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-white/60">Today</p>
+                      <p className="mt-2 text-lg font-semibold">{todayDeliveryCount} booked</p>
+                    </div>
+                    <div className="col-span-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur sm:col-span-1">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-white/60">Selected Date</p>
+                      <p className="mt-2 text-sm font-semibold">
+                        {selectedDeliveryDateValue ? formatDateLabel(selectedDeliveryDateValue) : 'Not selected'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-5 bg-[linear-gradient(180deg,#fff_0%,#fff8fb_100%)] p-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+                <div className="space-y-4">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Booking date</p>
+                        <p className="text-xs text-slate-500">Select a preferred date. Full dates auto-shift forward.</p>
+                      </div>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600">
+                        Smart assign
+                      </span>
+                    </div>
+                    <input
+                      type="date"
+                      min={todayDateKey}
+                      value={deliveryDate}
+                      onChange={(e) => handleDeliveryDateSelection(e.target.value)}
+                      className="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-rose-300 focus:bg-white focus:ring-4 focus:ring-rose-100"
+                    />
+                    <p className="mt-3 text-xs leading-5 text-slate-500">
+                      Optional on the invoice, but recommended when your delivery calendar is near capacity.
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Daily delivery limit</p>
+                        <p className="text-xs text-slate-500">Draft changes stay local until you confirm and apply them.</p>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] ${
+                        deliveryLimitHasChanges
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {deliveryLimitHasChanges ? 'Draft changed' : 'Live'}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                          Draft capacity
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={dailyDeliveryLimitDraft}
+                          onChange={(e) => setDailyDeliveryLimitDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleApplyDailyDeliveryLimit();
+                            }
+                          }}
+                          className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-rose-300 focus:bg-white focus:ring-4 focus:ring-rose-100"
+                        />
+                        <p className="mt-2 text-xs text-slate-500">Use `0` when you want to remove the daily cap.</p>
+                      </div>
+
+                      <div className="rounded-2xl bg-slate-950 px-4 py-3 text-white">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Review</p>
+                        <p className="mt-2 text-lg font-semibold">
+                          {draftDeliveryLimitLabel}
+                          <span className="ml-2 text-sm font-medium text-white/60">draft</span>
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-white/70">
+                          Current live setting is {activeDeliveryLimitLabel}. Applying a lower limit can re-route the selected
+                          delivery date after confirmation.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleApplyDailyDeliveryLimit}
+                        className="inline-flex items-center rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                      >
+                        Review & Apply
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetDailyDeliveryLimitDraft}
+                        className="inline-flex items-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                      >
+                        Reset Draft
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Selected date status</p>
+                    <p className="mt-3 text-base font-semibold text-slate-900">
+                      {selectedDeliveryDateValue ? formatDateLabel(selectedDeliveryDateValue) : 'Pick a delivery date'}
+                    </p>
+                    {selectedDeliveryDateValue ? (
+                      <>
+                        <p className="mt-2 text-sm text-slate-600">
+                          {selectedDateCount} deliveries are already scheduled
+                          {isPastDateValue(selectedDeliveryDateValue)
+                            ? ' and this date is kept as historical data.'
+                            : Number(dailyDeliveryLimit) > 0
+                            ? ` and ${selectedDateRemaining} slots remain under the current live limit.`
+                            : ' and there is no active capacity cap.'}
+                        </p>
+                        {suggestedSelectedDate && formatDateKey(suggestedSelectedDate) !== deliveryDate && (
+                          <p className="mt-2 text-xs text-rose-600">
+                            Next available slot under the live limit: {formatDateLabel(suggestedSelectedDate)}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-500">
+                        Pick a date to see how crowded it is before creating the bill.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+
+              {deliveryDateNotice && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 shadow-sm">
+                  {deliveryDateNotice}
+                </div>
+              )}
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Calendar capacity view</p>
+                    <p className="text-xs text-slate-500">
+                      Browse the month, inspect live demand, and spot dates that are already full.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs font-medium">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">Demand visible on every tile</span>
+                    <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-700">Full dates highlighted</span>
+                  </div>
+                </div>
+                <Calendar
+                  onChange={handleDeliveryDateSelection}
+                  value={previewDateValue || selectedDeliveryDateValue || null}
+                  activeStartDate={deliveryCalendarMonth}
+                        onActiveStartDateChange={({ activeStartDate }) => {
+                          if (activeStartDate) {
+                            setDeliveryCalendarMonth(activeStartDate);
+                          }
+                        }}
+                        tileDisabled={({ date, view }) => view === 'month' && isPastDateValue(date)}
+                        tileContent={deliveryCalendarTileContent}
+                        tileClassName={deliveryCalendarTileClassName}
+                        className="offline-delivery-calendar"
+                />
+
+                <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {previewDateValue ? formatDateLabel(previewDateValue) : 'Click a date to inspect deliveries'}
+                      </p>
+                      {previewDateValue && (
+                        <p className="text-xs text-slate-500">
+                          {previewDateCount} deliveries are scheduled for this day across online and offline orders.
+                          {isPastDateValue(previewDateValue) ? ' Past dates are shown as history only.' : ''}
+                        </p>
+                      )}
+                    </div>
+                    {previewDateRemaining !== null && (
+                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
+                        previewDateRemaining === 0
+                          ? 'bg-rose-100 text-rose-700'
+                          : 'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {previewDateRemaining === 0
+                          ? 'Capacity reached'
+                          : `${previewDateRemaining} slots available`}
+                      </span>
+                    )}
+                  </div>
+
+                  {previewDateValue && (
+                    <div className="mt-3 space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {previewDateOrders.length > 0 ? (
+                        previewDateOrders.map((order) => (
+                          <div
+                            key={order.id}
+                            className="flex items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 transition hover:border-rose-200"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">
+                                {order.customer?.name || order.customerName || 'Customer'}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {order.billNumber || order.offlineBillId || order.id}
+                              </p>
+                            </div>
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                              order.isOffline
+                                ? 'bg-rose-100 text-rose-700'
+                                : 'bg-sky-100 text-sky-700'
+                            }`}>
+                              {order.isOffline ? 'Offline' : 'Online'}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+                          No deliveries are scheduled for this date yet.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+                  <p className="text-xs leading-5 text-slate-500">
                 Optional – shown on the invoice for customer reference.
               </p>
             </div>
+          </div>
+        </div>
 
             <div className="product-dropdown-container">
               <label className="block text-sm font-medium mb-2">
