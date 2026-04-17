@@ -168,6 +168,7 @@ const InvoiceGenerator = ({ bill, onClose, onSendToCustomer }) => {
 
           <div className="text-center my-8">
             <div className="text-xl font-bold text-pink-600 mb-2">Thank you for shopping with Sugam Fashion!</div>
+            <div> <h1 className='text-start'><span className="text-xl font-bold text-pink-600 mb-2">Note : </span>If dresses will be taken back within two months we will not be responsible for It and current failure we not responsible for delivery.</h1></div>
           </div>
 
           <div className="text-center text-xs text-gray-500 mt-8">
