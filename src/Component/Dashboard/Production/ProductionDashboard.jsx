@@ -9,6 +9,7 @@ import { HiOutlineCube } from 'react-icons/hi';
 import OrderDetailsModal from '../Shared/OrderDetailsModal';
 import { getOrderById } from '../../../api/orders';
 import { getReminderDateForRole, toDateSafe } from '../../../utils/productionDates';
+import FirebaseFileManager from '../../Common/FirebaseFileManager';
 
 const ProductionDashboard = ({ userRole }) => {
   const [entries, setEntries] = useState([]);
@@ -217,6 +218,18 @@ const ProductionDashboard = ({ userRole }) => {
   return (
     <>
       <DashboardLayout title={`${department.replace('_', ' ').toUpperCase()} Dashboard`} menu={menu} activeKey={'production'} onChange={() => {}}>
+        <div className="mb-6">
+          <FirebaseFileManager
+            collectionName="cadFiles"
+            section={department}
+            storageFolder="cad-files"
+            label="CAD File Management"
+            helperText="Independent file library for SVG and DXE CAD software files."
+            maxFiles={200}
+            maxSizeMb={100}
+          />
+        </div>
+
         <div className="flex flex-col md:flex-row gap-2 md:gap-4 mb-4 items-center">
           <input
             type="text"
